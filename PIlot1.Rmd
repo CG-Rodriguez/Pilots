@@ -1,0 +1,230 @@
+---
+title: "Abortion and Victimhood - Pilot Results"
+author: "Cristian Rodriguez"
+date: "July 26, 2019"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth:3
+    smooth_scroll: true
+    
+---
+
+```{r Load, include = F}
+
+library(knitr)
+library(tidyverse)
+library(psych)
+library(semPlot)
+library(lavaan)
+opts_chunk$set(results = 'asis',
+                comment = NA, 
+                prompt = FALSE, 
+                cache = FALSE)
+library(summarytools)
+st_options(plain.ascii = FALSE,       
+            style = "rmarkdown",       
+            footnote = NA,            
+            subtitle.emphasis = FALSE,
+           headings = FALSE)                                    
+    
+load("clean.Rdata")
+Clean_DF[complete.cases(Clean_DF),]->Clean_DF
+
+```
+
+Pilot sample: `r nrow(Clean_DF)` MTurkers (7/18/19)
+
+## Descriptives
+### Demographics
+```{r discrete Demographics, warning=FALSE, message=FALSE,echo = FALSE}
+st_css()
+Clean_DF %>%
+  dplyr::select(Sex, SexOr, Age, Edu_Cat, Party, Marital, Rel_Person) %>%
+  dfSummary(method = "render",plain.ascii = FALSE, style = "grid", tmp.img.dir = "/tmp", varnumbers = FALSE) 
+```
+
+### Overview of Variables of Interest
+```{r Descriptives, warning=F, message=F, echo=F}
+Clean_DF %>%
+  dplyr::select(Elective, Preventive, Traumatic, Natural, Mind, Ab_OK, Victimhood) %>%
+  dfSummary(method = "render",plain.ascii = FALSE, style = "grid", tmp.img.dir = "/tmp", varnumbers = FALSE) 
+```
+
+### Zero-order Correlations across variables
+
+```{r Correlation, echo = FALSE, message=FALSE}
+library(sjPlot)
+cormat<-cor(Clean_DF[,1:13], use = "complete")
+pmat<-corr.p(cormat, n =nrow(Clean_DF))
+Labs<-c("Ab: Elect", "Ab: Trev", "Ab:Traum", "FP: Mind-like", "FP: Natural-like",
+        "Sc: Ab is OK", "Sc: Victim", "Sc: Unwant", "Sc: Child suffers", "Sc: Woman suffers", 
+        "Trade Off", "Ideology", "Religiosity")
+        
+sjt.corr(Clean_DF[,1:13], triangle = "l", digits = 2,  show.p = T, 
+         var.labels = Labs, p.numeric = T, remove.spaces = T, file = "correlations.html")
+```
+
+### Confirmatory Factor Analysis
++ Abortion Attitudes
+
+```{r CFA Abortion, echo=FALSE,   warning=FALSE}
+
+load("SemPack")
+Pack[[1]]->FitAb1F
+Pack[[2]]->FitAb2F
+Pack[[3]]->FitAb3F
+fitmes<-c("chisq" ,"df", "RMSEA", "srmr", "CFI", "TLI", "AIC","BIC")
+t(data.frame( OneF = fitmeasures(FitAb1F, fit.measures = fitmes),
+            TwoF = fitmeasures(FitAb2F, fit.measures = fitmes),
+            ThreeF = fitmeasures(FitAb3F, fit.measures = fitmes))) %>%
+  kable(digits = 3)
+
+semPaths(FitAb3F,  whatLabels = "std",  rotation = 2, sizeMan = 10, sizeMan2 = 4, edge.label.cex = 1.2, exoVar = F, nodeLabels = rev(c("Traumatic","Elective", "Preventive",  "Non-viable", "Rape", "Cancer", "Life", "Heart Df", "Congenital", "Down", "Leg Miss", "Any", "Educat", "Single", "Unprepared" )), residuals = F, label.cex = 1.2)
+```
+
++ Fetal Personhood
+
+``` {r CFA FP, echo = F, messages = F}
+Pack[[4]]->Fit1F_FP
+Pack[[5]]->Fit2F_FP
+Names<-Fit2F_FP@Data@ov.names
+t(data.frame(OneF = fitmeasures(Fit1F_FP, fit.measures = fitmes),
+            TwoF = fitmeasures(Fit2F_FP, fit.measures = fitmes))) %>%
+  kable(digits = 3)
+  
+semPaths(Fit2F_FP,whatLabels = "std",  rotation = 2, sizeMan = 10, sizeMan2 = 4, edge.label.cex = 1.2, exoVar = F, residuals = F,  nodeLabels = c( Names[[1]], "Mind", "Natural"))
+```
+
+## Analyses
+
+These regressions had identical patterns with or without demographics (Gender, Age, Sexual Orientation, Educational Level, Marital Status, Self/Partner ever been pregnant, Self/Partner ever had an abortion, Having Children, Number of Children). The following models were conducted without demographics.
+
+``` {r Regressions, silent=TRUE, echo=FALSE  }
+
+ModelP_1_El<-lm(data = Clean_DF, 
+               Elective ~ Ideology + Church_att + Rel_Person)
+ModelP_1_Pr<-lm(data = Clean_DF, 
+               Preventive ~ Ideology + Church_att + Rel_Person)
+ModelP_1_Tr<-lm(data = Clean_DF, 
+               Traumatic ~ Ideology + Church_att + Rel_Person)
+ModelP_1_Sc<-lm(data = Clean_DF, 
+               Ab_OK ~ Ideology + Church_att + Rel_Person)
+ModelP_1_TO<-lm(data = Clean_DF, 
+               Trade_Off ~ Ideology + Church_att + Rel_Person)
+## Fetal Personhood
+ModelP_2_El<-lm(data = Clean_DF, 
+               Elective ~ Mind + Natural + Ideology + Church_att + Rel_Person)
+ModelP_2_Pr<-lm(data = Clean_DF, 
+               Preventive ~ Mind + Natural + Ideology + Church_att + Rel_Person)
+ModelP_2_Tr<-lm(data = Clean_DF, 
+               Traumatic ~ Mind + Natural + Ideology + Church_att + Rel_Person)
+ModelP_2_Sc<-lm(data = Clean_DF, 
+               Ab_OK ~ Mind + Natural + Ideology + Church_att + Rel_Person)
+ModelP_2_TO<-lm(data = Clean_DF, 
+               Trade_Off ~ Mind + Natural + Ideology + Church_att + Rel_Person)
+## Women and Child Suffering
+ModelP_3_El<-lm(data = Clean_DF, 
+               Elective ~ Ch_suff + Wm_suff +Mind + Natural + Ideology + Church_att + Rel_Person)
+ModelP_3_Pr<-lm(data = Clean_DF, 
+               Preventive ~ Ch_suff + Wm_suff +Mind + Natural + Ideology + Church_att + Rel_Person)
+ModelP_3_Tr<-lm(data = Clean_DF, 
+               Traumatic ~ Ch_suff + Wm_suff +Mind + Natural + Ideology + Church_att + Rel_Person)
+ModelP_3_Sc<-lm(data = Clean_DF, 
+               Ab_OK ~ Ch_suff + Wm_suff +Mind + Natural + Ideology + Church_att + Rel_Person)
+ModelP_3_TO<-lm(data = Clean_DF, 
+               Trade_Off ~ Ch_suff + Wm_suff +Mind + Natural + Ideology + Church_att + Rel_Person)
+### Victimhood and Unwantedness
+ModelP_4_El<-lm(data = Clean_DF, 
+               Elective ~ Victimhood + UW +Ch_suff + Wm_suff +Mind + Natural + Ideology + Church_att + Rel_Person)
+ModelP_4_Pr<-lm(data = Clean_DF, 
+               Preventive ~ Victimhood + UW +Ch_suff + Wm_suff +Mind + Natural + Ideology + Church_att + Rel_Person)
+ModelP_4_Tr<-lm(data = Clean_DF, 
+               Traumatic ~ Victimhood + UW +Ch_suff + Wm_suff +Mind + Natural + Ideology + Church_att + Rel_Person)
+ModelP_4_Sc<-lm(data = Clean_DF, 
+               Ab_OK ~ Victimhood + UW +Ch_suff + Wm_suff +Mind + Natural + Ideology + Church_att + Rel_Person)
+ModelP_4_TO<-lm(data = Clean_DF, 
+               Trade_Off ~ Victimhood + UW +Ch_suff + Wm_suff +Mind + Natural + Ideology + Church_att + Rel_Person)
+
+```
+
+Model 1: Ideology and Religiosity (in 2 items)   
+Model 2 adds: Mind-like and Natural traits attributed to the Fetus  
+Model 3 adds: Expectations of the Child suffering and the Woman suffering  
+Model 4 adds: Perceived Victimhood and Unwantedness of the pregnancy   
+
+### Elective Abortion
+``` {r Models table EL, echo=FALSE}
+tab_model(ModelP_1_El, ModelP_2_El, ModelP_3_El, ModelP_4_El, 
+          show.std = "std", show.intercept = F, show.est = F,  show.r2 = T, 
+          dv.labels = c("Model 1", "Model 2", "Model 3", "Model4"), title = "Outcome: Elective Abortion",
+          string.std = "Beta", string.stat = "t statistic", string.ci = "95% CI", ci.hyphen = ",")
+
+ggplot(data = data.frame(Res= ModelP_4_El$residuals, Fit = ModelP_4_El$fitted.values), aes(Fit, Res)) + geom_point() + geom_smooth(color = "red", method = "lm") + geom_smooth(color = "blue", method = "loess") + labs(x = "Fitted Values", y = "Residuals", title = "Distribution of Residuals (Elective Abortion)", subtitle = "Model 4 - all predictors")
+```
+
+### Preventive Abortion
+``` {r Models table Pr, echo=FALSE}
+tab_model(ModelP_1_Pr, ModelP_2_Pr, ModelP_3_Pr, ModelP_4_Pr, 
+          show.std = "std", show.intercept = F, show.est = F,  show.r2 = T, 
+          dv.labels = c("Model 1", "Model 2", "Model 3", "Model4"), title = "Outcome: Preventive Abortion",
+          string.std = "Beta", string.stat = "t statistic", string.ci = "95% CI", ci.hyphen = ",")
+
+ggplot(data = data.frame(Res= ModelP_4_Pr$residuals, Fit = ModelP_4_Pr$fitted.values), aes(Fit, Res)) + geom_point() + geom_smooth(color = "red", method = "lm") + geom_smooth(color = "blue", method = "loess") + labs(x = "Fitted Values", y = "Residuals", title = "Distribution of Residuals (Preventive Abortion)", subtitle = "Model 4 - all predictors")
+```
+
+### Traumatic Abortion
+``` {r Models table Tr, echo=FALSE}
+tab_model(ModelP_1_Tr, ModelP_2_Tr, ModelP_3_Tr, ModelP_4_Tr, 
+          show.std = "std", show.intercept = F, show.est = F,  show.r2 = T, 
+          dv.labels = c("Model 1", "Model 2", "Model 3", "Model4"), title = "Outcome: Traumatic Abortion",
+          string.std = "Beta", string.stat = "t statistic", string.ci = "95% CI", ci.hyphen = ",")
+
+ggplot(data = data.frame(Res= ModelP_4_Tr$residuals, Fit = ModelP_4_Tr$fitted.values), aes(Fit, Res)) + geom_point() + geom_smooth(color = "red", method = "lm") + geom_smooth(color = "blue", method = "loess") + labs(x = "Fitted Values", y = "Residuals", title = "Distribution of Residuals (Traumatic Abortion)", subtitle = "Model 4 - all predictors")
+```
+
+### Scenarios: It's OK for the character to have an abortion
+
+``` {r Models table Sc, echo=FALSE}
+tab_model(ModelP_1_Sc, ModelP_2_Sc, ModelP_3_Sc, ModelP_4_Sc, 
+          show.std = "std", show.intercept = F, show.est = F,  show.r2 = T, 
+          dv.labels = c("Model 1", "Model 2", "Model 3", "Model4"), title = "Outcome: Scenarios",
+          string.std = "Beta", string.stat = "t statistic", string.ci = "95% CI", ci.hyphen = ",")
+
+ggplot(data = data.frame(Res= ModelP_4_Sc$residuals, Fit = ModelP_4_Sc$fitted.values), aes(Fit, Res)) + geom_point() + geom_smooth(color = "red", method = "lm") + geom_smooth(color = "blue", method = "loess") + labs(x = "Fitted Values", y = "Residuals", title = "Distribution of Residuals (Scenarios)", subtitle = "Model 4 - all predictors")
+```
+
+### Trade Offs: Mother's goals vs. Fetus' well-being
+``` {r Models table TO, echo=FALSE}
+tab_model(ModelP_1_TO, ModelP_2_TO, ModelP_3_TO, ModelP_4_TO, 
+          show.std = "std", show.intercept = F, show.est = F,  show.r2 = T, 
+          dv.labels = c("Model 1", "Model 2", "Model 3", "Model4"), title = "Outcome: Trade Offs",
+          string.std = "Beta", string.stat = "t statistic", string.ci = "95% CI", ci.hyphen = ",")
+
+ggplot(data = data.frame(Res= ModelP_4_TO$residuals, Fit = ModelP_4_TO$fitted.values), aes(Fit, Res)) + geom_point() + geom_smooth(color = "red", method = "lm") + geom_smooth(color = "blue", method = "loess") + labs(x = "Fitted Values", y = "Residuals", title = "Distribution of Residuals (Trade Offs)", subtitle = "Model 4 - all predictors")
+```
+
+## Preliminary Conclusions
+
+- Confirmatory Factor Analyses show that the structure of the items we developed fits the data well, better than options with less factors.
+
+- Consistent with the literature, demographic variables do not predict abortion attitudes, once introduced more specific attitudinal variables. 
+
+- Out of the 5 outcomes of abortion attitudes (3 subscales, the aggregated scenarios and the tradeoffs), 4 have similar patterns. Trade Offs do not seem to be predicted by practically any of the variables studied here; it remains an open question whether to some extent the mother vs. fetus tension is a proxy for fetal personhood and/or willingness to abort.
+
+- Elective and Preventive Abortion have almost identical sets of predictors, with similar effect sizes, and the model predict almost the same amount of variance.
+
+```{r table, echo=F}
+tab_model(ModelP_4_El,ModelP_4_Pr,ModelP_4_Tr,ModelP_4_Sc, show.est = F, show.std = T, show.ci = F) 
+```
+
+- The only differences are in that Preventive Abortion is predicted by Mind  attribution to the fetus, is more predicted by the expectation of the children to suffer, and is less predicted by self-identification as religious and perception of victimhood of the woman. The two first make sense at face-value: an unborn child with health defects will probably suffer, justifying the abortion; on the other hand, greater mind attribution -empathy?- will reduce abortion as a "way-out" strategy. How is that connected to religiosity and Victimhood? Hard to tell from this data.
+
+- In Traumatic abortion is interesting to notice that victimhood is less predictive, whereas suffering -both for the child if it's born, or for the mother if she aborts- carry much more of the weight. Finally, Church attendance -institutional religiosity?- also predicts opposition to traumatic abortion.
+
+- Contrary to my hunch, Unwantedness of pregnancy in itself, does not predict support for abortion. Although the correlations between unwantedness and abortion outcomes are significant, once in the model with other predictors, its influence is reduced.
+
+- The predictors of supporting abortion in the scenarios maps quite close to Elective and Preventive, rather than Traumatic. Mind attribution is out of the equation, and only here Unwantedness plays a more important role.
+
+- Victimhood: we could definitely make the case that victimhood - seen as the perception of how much an entity will suffer- drive abortion attitudes. We have, of course, the Victimhood variable, a reliable "scale" comprised of 4 items. But we also have the 'victims in possible worlds': the child if it's not terminated, the mother if it is. In all the outcomes these three aspects of victimhood contribute with a unique amount of variance explained. Perhaps we could model Victimhood appraisal in general as a latent variable?
