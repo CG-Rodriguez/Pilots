@@ -10,8 +10,8 @@ date: "July 26, 2019"
 output: 
   html_document:
     toc: true
-    toc_float: true
-    smooth_scroll: true
+    toc_float: 
+      smooth_scroll: true
     
 ---
 
