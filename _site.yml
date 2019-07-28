@@ -1,0 +1,16 @@
+--- 
+name: Pilots
+navbar: 
+  left: 
+    - 
+      href: index.html
+      text: Home
+    - 
+      href: PIlot1.html
+      text: About
+  title: Pilot
+output: 
+  html_document: 
+    theme: cosmo
+output_dir: docs
+---
